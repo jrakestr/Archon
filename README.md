@@ -67,10 +67,17 @@ This new vision for Archon replaces the old one (the agenteer). Archon used to b
    # SUPABASE_URL=https://your-project.supabase.co
    # SUPABASE_SERVICE_KEY=your-service-key-here
    ```
+   **For ngrok integration** (optional - useful for external AI client access):
+   ```bash
+   # Install ngrok if not already installed
+   # Then expose the MCP server externally
+   ngrok http 8051
+   ```
 
    IMPORTANT NOTES:
    - For cloud Supabase: they recently introduced a new type of service role key but use the legacy one (the longer one).
    - For local Supabase: set SUPABASE_URL to http://host.docker.internal:8000 (unless you have an IP address set up).
+   - **ngrok integration**: Use `ngrok http 8051` to expose your MCP server for external AI client connections
 
 3. **Database Setup**: In your [Supabase project](https://supabase.com/dashboard) SQL Editor, copy, paste, and execute the contents of `migration/complete_setup.sql`
 
@@ -82,12 +89,19 @@ This new vision for Archon replaces the old one (the agenteer). Archon used to b
    docker compose up --build -d
    ```
 
+   **With AI Agents Service (Optional)**
+
+   ```bash
+   docker compose --profile agents up --build -d
+   ```
+
    This starts all core microservices in Docker:
    - **Server**: Core API and business logic (Port: 8181)
    - **MCP Server**: Protocol interface for AI clients (Port: 8051)
    - **UI**: Web interface (Port: 3737)
+   - **Agents**: AI/ML operations and reranking (Port: 8052) - *only with agents profile*
 
-   Ports are configurable in your .env as well!
+   All ports are configurable in your `.env` file!
 
 5. **Configure API Keys**:
    - Open http://localhost:3737
@@ -100,7 +114,8 @@ Once everything is running:
 1. **Test Web Crawling**: Go to http://localhost:3737 → Knowledge Base → "Crawl Website" → Enter a doc URL (such as https://ai.pydantic.dev/llms-full.txt)
 2. **Test Document Upload**: Knowledge Base → Upload a PDF
 3. **Test Projects**: Projects → Create a new project and add tasks
-4. **Integrate with your AI coding assistant**: MCP Dashboard → Copy connection config for your AI coding assistant 
+4. **Integrate with your AI coding assistant**: MCP Dashboard → Copy connection config for your AI coding assistant
+5. **External Access (Optional)**: Use `ngrok http 8051` to expose MCP server for remote AI client connections
 
 ## Installing Make
 
@@ -188,12 +203,76 @@ The reset script safely removes all tables, functions, triggers, and policies wi
 
 ### Core Services
 
-| Service            | Container Name | Default URL           | Purpose                           |
-| ------------------ | -------------- | --------------------- | --------------------------------- |
-| **Web Interface**  | archon-ui      | http://localhost:3737 | Main dashboard and controls       |
-| **API Service**    | archon-server  | http://localhost:8181 | Web crawling, document processing |
-| **MCP Server**     | archon-mcp     | http://localhost:8051 | Model Context Protocol interface  |
-| **Agents Service** | archon-agents  | http://localhost:8052 | AI/ML operations, reranking       |  
+| Service            | Container Name | Default URL           | Purpose                           | Profile Required |
+| ------------------ | -------------- | --------------------- | --------------------------------- | ---------------- |
+| **Web Interface**  | archon-ui      | http://localhost:3737 | Main dashboard and controls       | Default          |
+| **API Service**    | archon-server  | http://localhost:8181 | Web crawling, document processing | Default          |
+| **MCP Server**     | archon-mcp     | http://localhost:8051 | Model Context Protocol interface  | Default          |
+| **Agents Service** | archon-agents  | http://localhost:8052 | AI/ML operations, reranking       | `agents`         |
+
+### Environment Variables
+
+Your Archon installation uses the following key environment variables (configured in `.env`):
+
+#### Required Configuration
+```bash
+# Supabase Database Connection (REQUIRED)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key-here
+
+# Service Ports (Optional - defaults shown)
+HOST=localhost
+ARCHON_SERVER_PORT=8181
+ARCHON_MCP_PORT=8051
+ARCHON_AGENTS_PORT=8052
+ARCHON_UI_PORT=3737
+```
+
+#### Optional Configuration
+```bash
+# Logging and Development
+LOG_LEVEL=INFO
+LOGFIRE_TOKEN=your-logfire-token
+
+# Frontend Development
+VITE_ALLOWED_HOSTS=192.168.1.100,myhost.local
+VITE_SHOW_DEVTOOLS=false
+
+# Production Mode (single port proxy)
+PROD=false
+
+# Embedding Configuration
+EMBEDDING_DIMENSIONS=1536
+```
+
+#### API Keys and Model Configuration
+API keys and model settings are now managed through the web interface:
+- Navigate to Settings → API Configuration
+- All keys are encrypted and stored securely in the database
+- Supports OpenAI, Ollama, and Google Gemini models
+
+### External Access with ngrok
+
+For remote AI client connections or sharing your Archon instance:
+
+```bash
+# Install ngrok (if not already installed)
+# macOS: brew install ngrok
+# Windows: choco install ngrok
+# Linux: snap install ngrok
+
+# Expose MCP server externally
+ngrok http 8051
+
+# Use the provided ngrok URL in your AI client configuration
+# Example: https://abc123.ngrok.io instead of http://localhost:8051
+```
+
+**Use Cases for ngrok:**
+- Connect AI clients running on different machines
+- Share your Archon instance with team members
+- Access Archon from cloud-based AI coding assistants
+- Development and testing with external services
 
 ## Upgrading
 
@@ -296,59 +375,84 @@ Archon uses true microservices architecture with clear separation of concerns:
 
 ## 🔧 Configuring Custom Ports & Hostname
 
-By default, Archon services run on the following ports:
+This Archon installation supports flexible port and hostname configuration through environment variables.
 
-- **archon-ui**: 3737
-- **archon-server**: 8181
-- **archon-mcp**: 8051
-- **archon-agents**: 8052
-- **archon-docs**: 3838 (optional)
+### Default Port Configuration
+
+```bash
+# Default ports used by this installation
+ARCHON_UI_PORT=3737      # Web interface
+ARCHON_SERVER_PORT=8181  # API service
+ARCHON_MCP_PORT=8051     # MCP server (AI client connections)
+ARCHON_AGENTS_PORT=8052  # AI agents service
+ARCHON_DOCS_PORT=3838    # Documentation (optional)
+```
 
 ### Changing Ports
 
-To use custom ports, add these variables to your `.env` file:
+Customize ports by updating your `.env` file:
 
 ```bash
-# Service Ports Configuration
-ARCHON_UI_PORT=3737
-ARCHON_SERVER_PORT=8181
-ARCHON_MCP_PORT=8051
-ARCHON_AGENTS_PORT=8052
-ARCHON_DOCS_PORT=3838
-```
-
-Example: Running on different ports:
-
-```bash
+# Example: Custom port configuration
 ARCHON_SERVER_PORT=8282
 ARCHON_MCP_PORT=8151
+ARCHON_UI_PORT=4000
 ```
 
-### Configuring Hostname
+### Hostname Configuration
 
-By default, Archon uses `localhost` as the hostname. You can configure a custom hostname or IP address by setting the `HOST` variable in your `.env` file:
+Configure custom hostname or IP address:
 
 ```bash
 # Hostname Configuration
 HOST=localhost  # Default
 
-# Examples of custom hostnames:
-HOST=192.168.1.100     # Use specific IP address
-HOST=archon.local      # Use custom domain
-HOST=myserver.com      # Use public domain
+# Examples for different deployment scenarios:
+HOST=192.168.1.100     # Local network access
+HOST=archon.local      # Custom local domain
+HOST=myserver.com      # Public domain
+HOST=0.0.0.0          # Bind to all interfaces
 ```
 
-This is useful when:
+### Network Access Scenarios
 
-- Running Archon on a different machine and accessing it remotely
-- Using a custom domain name for your installation
-- Deploying in a network environment where `localhost` isn't accessible
+**Local Development:**
+```bash
+HOST=localhost
+# Access: http://localhost:3737
+```
 
-After changing hostname or ports:
+**Network Sharing:**
+```bash
+HOST=192.168.1.100
+VITE_ALLOWED_HOSTS=192.168.1.100,192.168.1.0/24
+# Team members can access: http://192.168.1.100:3737
+```
 
-1. Restart Docker containers: `docker compose down && docker compose --profile full up -d`
-2. Access the UI at: `http://${HOST}:${ARCHON_UI_PORT}`
-3. Update your AI client configuration with the new hostname and MCP port
+**External Access with ngrok:**
+```bash
+# Keep default localhost settings
+# Use ngrok for external MCP access
+ngrok http 8051
+# AI clients connect to: https://abc123.ngrok.io
+```
+
+### Applying Configuration Changes
+
+After modifying `.env`:
+
+1. **Restart services:**
+   ```bash
+   docker compose down
+   docker compose up -d --build
+   ```
+
+2. **Update AI client configurations** with new hostname/ports
+
+3. **Verify connectivity:**
+   ```bash
+   curl http://${HOST}:${ARCHON_SERVER_PORT}/health
+   ```
 
 ## 🔧 Development
 
@@ -370,6 +474,8 @@ make stop
 
 ### Development Modes
 
+This Archon installation includes optimized development workflows:
+
 #### Hybrid Mode (Recommended) - `make dev`
 
 Best for active development with instant frontend updates:
@@ -377,6 +483,7 @@ Best for active development with instant frontend updates:
 - Backend services run in Docker (isolated, consistent)
 - Frontend runs locally with hot module replacement
 - Instant UI updates without Docker rebuilds
+- Automatic environment variable handling
 
 #### Full Docker Mode - `make dev-docker`
 
@@ -384,7 +491,23 @@ For all services in Docker environment:
 
 - All services run in Docker containers
 - Better for integration testing
-- Slower frontend updates
+- Consistent across all environments
+- Includes optional agents service with `--profile agents`
+
+#### Docker Compose Profiles
+
+This installation uses Docker Compose profiles for flexible service management:
+
+```bash
+# Default services only (server, mcp, frontend)
+docker compose up -d
+
+# Include AI agents service
+docker compose --profile agents up -d
+
+# Development with all services
+docker compose --profile full up -d
+```
 
 ### Testing & Code Quality
 
